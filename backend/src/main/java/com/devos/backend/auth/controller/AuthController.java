@@ -1,6 +1,6 @@
 package com.devos.backend.auth.controller;
 
-import com.devos.backend.auth.dto.RegisterRequest;
+import com.devos.backend.auth.dto.request.RegisterRequest;
 import com.devos.backend.auth.service.AuthService;
 import com.devos.backend.common.dto.ApiResponse;
 import jakarta.validation.Valid;

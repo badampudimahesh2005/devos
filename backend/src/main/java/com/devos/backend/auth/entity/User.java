@@ -1,5 +1,6 @@
 package com.devos.backend.auth.entity;
 
+import com.devos.backend.auth.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,18 +35,34 @@ public class User {
 
     private String profilePicture;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String role;
+    private Role role;
 
     @Builder.Default
+    @Column(nullable = false)
     private boolean emailVerified = false;
 
     @Builder.Default
+    @Column(nullable = false)
     private boolean active = true;
 
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     private LocalDateTime lastLogin;
+
+    @PrePersist
+    public void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

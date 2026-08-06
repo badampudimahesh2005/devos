@@ -1,6 +1,6 @@
 package com.devos.backend.auth.service;
 
-import com.devos.backend.auth.dto.RegisterRequest;
+import com.devos.backend.auth.dto.request.RegisterRequest;
 import com.devos.backend.auth.entity.User;
 import com.devos.backend.auth.repository.UserRepository;
 import com.devos.backend.common.dto.ApiResponse;
