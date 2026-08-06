@@ -1,10 +1,13 @@
 package com.devos.backend.auth.controller;
 
+import com.devos.backend.auth.dto.request.LoginRequest;
 import com.devos.backend.auth.dto.request.RegisterRequest;
+import com.devos.backend.auth.dto.response.AuthResponse;
 import com.devos.backend.auth.service.AuthService;
 import com.devos.backend.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,9 +18,16 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ApiResponse<Void> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
 
-        return authService.register(request);
+        return  ResponseEntity.ok(authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+
+        return ResponseEntity.ok(authService.login(request));
 
     }
+
 }

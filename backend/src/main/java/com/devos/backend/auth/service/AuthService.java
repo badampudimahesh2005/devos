@@ -1,10 +1,17 @@
 package com.devos.backend.auth.service;
 
+import com.devos.backend.auth.dto.request.LoginRequest;
 import com.devos.backend.auth.dto.request.RegisterRequest;
+import com.devos.backend.auth.dto.response.AuthResponse;
 import com.devos.backend.auth.entity.User;
+import com.devos.backend.auth.enums.Role;
 import com.devos.backend.auth.repository.UserRepository;
 import com.devos.backend.common.dto.ApiResponse;
+import com.devos.backend.common.exception.EmailAlreadyExistsException;
+import com.devos.backend.common.exception.InvalidCredentialsException;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -14,29 +21,21 @@ import java.time.LocalDateTime;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public ApiResponse<Void> register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            return ApiResponse.<Void>builder()
-                    .success(false)
-                    .message("Email already exists")
-                    .data(null)
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            throw new EmailAlreadyExistsException("Email already exists");
         }
 
         User user = User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
-                .role("DEVELOPER")
-                .active(true)
-                .emailVerified(false)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .role(Role.DEVELOPER)
                 .build();
 
         userRepository.save(user);
@@ -45,6 +44,36 @@ public class AuthService {
                 .success(true)
                 .message("User Registered Successfully")
                 .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+
+    public ApiResponse<AuthResponse> login(LoginRequest request) {
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() ->
+                        new InvalidCredentialsException("Invalid Email or Password"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+
+            throw new InvalidCredentialsException("Invalid Email or Password");
+        }
+
+        user.setLastLogin(LocalDateTime.now());
+
+        userRepository.save(user);
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(null)      // JWT tomorrow
+                .tokenType("Bearer")
+                .message("Login Successful")
+                .build();
+
+        return ApiResponse.<AuthResponse>builder()
+                .success(true)
+                .message("Login Successful")
+                .data(authResponse)
                 .timestamp(LocalDateTime.now())
                 .build();
     }
