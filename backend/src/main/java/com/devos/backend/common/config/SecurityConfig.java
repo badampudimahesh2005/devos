@@ -1,9 +1,12 @@
 package com.devos.backend.common.config;
 
 import com.devos.backend.auth.security.JwtAuthenticationFilter;
+import com.devos.backend.common.security.RestAccessDeniedHandler;
+import com.devos.backend.common.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -12,10 +15,17 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    private final RestAuthenticationEntryPoint
+            restAuthenticationEntryPoint;
+
+    private final RestAccessDeniedHandler
+            restAccessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -28,29 +38,33 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
-                // REST API - CSRF disabled for now
                 .csrf(csrf -> csrf.disable())
 
-                // JWT is stateless
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
 
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(
+                                restAuthenticationEntryPoint
+                        )
+                        .accessDeniedHandler(
+                                restAccessDeniedHandler
+                        )
+                )
+
                 .authorizeHttpRequests(auth -> auth
 
-                        // Public authentication endpoints
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login"
                         ).permitAll()
 
-                        // Everything else requires authentication
                         .anyRequest().authenticated()
                 )
 
-                // Run JWT filter before Spring's username/password filter
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
