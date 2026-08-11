@@ -4,8 +4,12 @@ import com.devos.backend.auth.entity.User;
 import com.devos.backend.auth.repository.UserRepository;
 import com.devos.backend.common.dto.ApiResponse;
 import com.devos.backend.common.exception.InvalidCredentialsException;
+import com.devos.backend.common.exception.ResourceAlreadyExistsException;
+import com.devos.backend.common.exception.ResourceNotFoundException;
 import com.devos.backend.common.security.SecurityUtils;
+import com.devos.backend.organization.dto.request.AddOrganizationMemberRequest;
 import com.devos.backend.organization.dto.request.CreateOrganizationRequest;
+import com.devos.backend.organization.dto.request.UpdateOrganizationMemberRoleRequest;
 import com.devos.backend.organization.dto.response.OrganizationMemberResponse;
 import com.devos.backend.organization.dto.response.OrganizationResponse;
 import com.devos.backend.organization.entity.Organization;
@@ -29,6 +33,7 @@ public class OrganizationService {
     private final OrganizationRepository organizationRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
     private final UserRepository userRepository;
+    private final OrganizationAuthorizationService organizationAuthorizationService;
 
 
 
@@ -203,5 +208,148 @@ public class OrganizationService {
                 .build();
     }
 
+
+    //================ members ============
+    @Transactional
+    public ApiResponse<OrganizationMemberResponse> addMember(
+            Long organizationId,
+            AddOrganizationMemberRequest request
+    ) {
+
+        organizationAuthorizationService
+                .requireAdminOrOwner(organizationId);
+
+        Organization organization =
+                organizationRepository.findById(organizationId)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Organization not found"
+                                )
+                        );
+
+        User user =
+                userRepository.findById(request.getUserId())
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "User not found"
+                                )
+                        );
+
+        if (organizationMemberRepository
+                .existsByOrganizationIdAndUserId(
+                        organizationId,
+                        request.getUserId()
+                )) {
+
+            throw new ResourceAlreadyExistsException(
+                    "User is already a member of this organization"
+            );
+        }
+
+        OrganizationMember currentMembership =
+                organizationAuthorizationService
+                        .getCurrentMembership(organizationId);
+
+        organizationAuthorizationService.validateRoleAssignment(
+                currentMembership.getRole(),
+                request.getRole()
+        );
+
+        OrganizationMember member =
+                OrganizationMember.builder()
+                        .organization(organization)
+                        .user(user)
+                        .role(request.getRole())
+                        .build();
+
+        member = organizationMemberRepository.save(member);
+
+        return ApiResponse.<OrganizationMemberResponse>builder()
+                .success(true)
+                .message("Member added successfully")
+                .data(mapToMemberResponse(member))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Transactional
+    public ApiResponse<OrganizationMemberResponse> updateMemberRole(
+            Long organizationId,
+            Long userId,
+            UpdateOrganizationMemberRoleRequest request
+    ) {
+
+        OrganizationMember targetMember =
+                organizationMemberRepository
+                        .findByOrganizationIdAndUserId(
+                                organizationId,
+                                userId
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Organization member not found"
+                                )
+                        );
+
+        OrganizationMember currentMember =
+                organizationAuthorizationService
+                        .getCurrentMembership(organizationId);
+
+        organizationAuthorizationService.requireCanChangeRole(
+                organizationId,
+                targetMember
+        );
+
+        organizationAuthorizationService.validateNewRole(
+                currentMember.getRole(),
+                request.getRole()
+        );
+
+        targetMember.setRole(request.getRole());
+
+        targetMember =
+                organizationMemberRepository.save(targetMember);
+
+        return ApiResponse.<OrganizationMemberResponse>builder()
+                .success(true)
+                .message("Member role updated successfully")
+                .data(mapToMemberResponse(targetMember))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Transactional
+    public ApiResponse<Void> removeMember(
+            Long organizationId,
+            Long userId
+    ) {
+
+        OrganizationMember targetMember =
+                organizationMemberRepository
+                        .findByOrganizationIdAndUserId(
+                                organizationId,
+                                userId
+                        )
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Organization member not found"
+                                )
+                        );
+
+        organizationAuthorizationService
+                .requireCanRemoveMember(
+                        organizationId,
+                        targetMember
+                );
+
+        organizationMemberRepository.delete(targetMember);
+
+        return ApiResponse.<Void>builder()
+                .success(true)
+                .message("Member removed successfully")
+                .data(null)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
 
 }

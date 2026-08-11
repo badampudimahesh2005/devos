@@ -14,6 +14,12 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(
                         columnNames = {"organization_id", "user_id"}
                 )
+        },
+        indexes = {
+                @Index(
+                        name = "idx_organization_member_user",
+                        columnList = "user_id"
+                )
         }
 )
 @Getter
@@ -50,7 +56,6 @@ public class OrganizationMember {
 
     @PrePersist
     public void onCreate() {
-
         this.joinedAt = LocalDateTime.now();
     }
 }

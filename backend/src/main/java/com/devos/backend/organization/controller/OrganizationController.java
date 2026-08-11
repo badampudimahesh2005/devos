@@ -1,7 +1,9 @@
 package com.devos.backend.organization.controller;
 
 import com.devos.backend.common.dto.ApiResponse;
+import com.devos.backend.organization.dto.request.AddOrganizationMemberRequest;
 import com.devos.backend.organization.dto.request.CreateOrganizationRequest;
+import com.devos.backend.organization.dto.request.UpdateOrganizationMemberRoleRequest;
 import com.devos.backend.organization.dto.response.OrganizationMemberResponse;
 import com.devos.backend.organization.dto.response.OrganizationResponse;
 import com.devos.backend.organization.service.OrganizationService;
@@ -54,6 +56,57 @@ public class OrganizationController {
         return ResponseEntity.ok(
                 organizationService.getOrganizationMembers(
                         organizationId
+                )
+        );
+    }
+
+    @PostMapping("/{organizationId}/members")
+    public ResponseEntity<
+            ApiResponse<OrganizationMemberResponse>
+            > addMember(
+            @PathVariable Long organizationId,
+            @Valid @RequestBody AddOrganizationMemberRequest request
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(
+                        organizationService.addMember(
+                                organizationId,
+                                request
+                        )
+                );
+    }
+
+    @PatchMapping("/{organizationId}/members/{userId}/role")
+    public ResponseEntity<
+            ApiResponse<OrganizationMemberResponse>
+            > updateMemberRole(
+            @PathVariable Long organizationId,
+            @PathVariable Long userId,
+            @Valid @RequestBody
+            UpdateOrganizationMemberRoleRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                organizationService.updateMemberRole(
+                        organizationId,
+                        userId,
+                        request
+                )
+        );
+    }
+
+    @DeleteMapping("/{organizationId}/members/{userId}")
+    public ResponseEntity<ApiResponse<Void>> removeMember(
+            @PathVariable Long organizationId,
+            @PathVariable Long userId
+    ) {
+
+        return ResponseEntity.ok(
+                organizationService.removeMember(
+                        organizationId,
+                        userId
                 )
         );
     }
