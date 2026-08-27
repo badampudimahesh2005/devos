@@ -1,5 +1,6 @@
 package com.devos.backend.task.service;
 
+import com.devos.backend.common.exception.InvalidStateTransitionException;
 import com.devos.backend.common.security.SecurityUtils;
 import com.devos.backend.organization.entity.OrganizationMember;
 import com.devos.backend.organization.enums.OrganizationRole;
@@ -103,7 +104,7 @@ public class TaskAuthorizationService {
     ) {
 
         if (currentStatus == requestedStatus) {
-            throw new IllegalStateException(
+            throw new InvalidStateTransitionException(
                     "Task is already in this status"
             );
         }
@@ -126,7 +127,7 @@ public class TaskAuthorizationService {
         };
 
         if (!allowed) {
-            throw new IllegalStateException(
+            throw new InvalidStateTransitionException(
                     "Invalid task status transition from "
                             + currentStatus
                             + " to "

@@ -127,9 +127,9 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ApiResponse<Void>> handleIllegalStateException(
-            IllegalStateException ex
+    @ExceptionHandler(InvalidStateTransitionException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidStateTransition(
+            InvalidStateTransitionException ex
     ) {
 
         ApiResponse<Void> response =
