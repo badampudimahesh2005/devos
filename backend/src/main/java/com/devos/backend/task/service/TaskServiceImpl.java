@@ -6,6 +6,8 @@ import com.devos.backend.common.dto.ApiResponse;
 import com.devos.backend.common.exception.ResourceNotFoundException;
 import com.devos.backend.common.exception.ResourceStateException;
 import com.devos.backend.common.security.SecurityUtils;
+import com.devos.backend.notification.event.NotificationEventPublisher;
+import com.devos.backend.notification.event.TaskAssignedEvent;
 import com.devos.backend.organization.entity.Organization;
 import com.devos.backend.organization.repository.OrganizationMemberRepository;
 import com.devos.backend.organization.repository.OrganizationRepository;
@@ -48,6 +50,8 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskAuthorizationService
             taskAuthorizationService;
+
+    private final NotificationEventPublisher notificationEventPublisher;
 
     @Override
     @Transactional
@@ -325,8 +329,7 @@ public class TaskServiceImpl implements TaskService {
             AssignTaskRequest request
     ) {
 
-        taskAuthorizationService
-                .requireCanAssignTask(organizationId);
+        taskAuthorizationService.requireCanAssignTask(organizationId);
 
         // 1. Verify current user belongs to organization
         organizationAuthorizationService.getCurrentMembership(organizationId);
@@ -390,6 +393,27 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignee(assignee);
 
         task = taskRepository.save(task);
+
+        //trigger notification
+        Long currentUserId =
+                SecurityUtils.getCurrentUserId();
+
+        if (!currentUserId.equals(assignee.getId())) {
+
+            notificationEventPublisher.publishTaskAssigned(
+                    new TaskAssignedEvent(
+                            task.getId(),
+                            project.getId(),
+                            organizationId,
+                            assignee.getId(),
+                            task.getProject().getKey()
+                                    + "-"
+                                    + task.getId(),
+                            task.getTitle(),
+                            currentUserId
+                    )
+            );
+        }
 
         // 8. Return response
         return ApiResponse.<TaskResponse>builder()
