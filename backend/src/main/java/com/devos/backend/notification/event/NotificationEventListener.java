@@ -115,4 +115,37 @@ public class NotificationEventListener {
 
         notificationRepository.save(notification);
     }
+
+    @EventListener
+    public void handleTaskUnassigned(TaskUnassignedEvent event) {
+
+        User previousAssignee = userRepository
+                .findById(event.previousAssigneeId())
+                .orElse(null);
+
+        if (previousAssignee == null) {
+            return;
+        }
+
+        // Don't notify if the user unassigned themselves
+        if (previousAssignee.getId().equals(event.unassignedByUserId())) {
+            return;
+        }
+
+        Notification notification = Notification.builder()
+                .user(previousAssignee)
+                .type(NotificationType.TASK_UNASSIGNED)
+                .title("Task unassigned")
+                .message(
+                        "You were unassigned from "
+                                + event.taskKey()
+                                + " - "
+                                + event.taskTitle()
+                )
+                .referenceType("TASK")
+                .referenceId(event.taskId())
+                .build();
+
+        notificationRepository.save(notification);
+    }
 }

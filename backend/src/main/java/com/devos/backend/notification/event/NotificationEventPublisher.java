@@ -23,4 +23,8 @@ public class NotificationEventPublisher {
     public void publishTaskCommentAdded(TaskCommentAddedEvent event) {
         eventPublisher.publishEvent(event);
     }
+
+    public void publishTaskUnassigned(TaskUnassignedEvent event) {
+        eventPublisher.publishEvent(event);
+    }
 }

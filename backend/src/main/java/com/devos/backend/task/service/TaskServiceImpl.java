@@ -9,6 +9,7 @@ import com.devos.backend.common.security.SecurityUtils;
 import com.devos.backend.notification.event.NotificationEventPublisher;
 import com.devos.backend.notification.event.TaskAssignedEvent;
 import com.devos.backend.notification.event.TaskStatusChangedEvent;
+import com.devos.backend.notification.event.TaskUnassignedEvent;
 import com.devos.backend.organization.entity.Organization;
 import com.devos.backend.organization.repository.OrganizationMemberRepository;
 import com.devos.backend.organization.repository.OrganizationRepository;
@@ -433,23 +434,22 @@ public class TaskServiceImpl implements TaskService {
             Long taskId
     ) {
 
-        taskAuthorizationService
-                .requireCanAssignTask(organizationId);
+        taskAuthorizationService.requireCanAssignTask(organizationId);
 
         // 1. Verify organization membership
         organizationAuthorizationService.getCurrentMembership(organizationId);
 
         // 2. Verify project belongs to organization
         Project project = projectRepository
-                        .findByOrganizationIdAndId(
-                                organizationId,
-                                projectId
+                .findByOrganizationIdAndId(
+                        organizationId,
+                        projectId
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Project not found"
                         )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Project not found"
-                                )
-                        );
+                );
 
         // 3. Archived projects cannot be modified
         if (project.getStatus() == ProjectStatus.ARCHIVED) {
@@ -461,20 +461,45 @@ public class TaskServiceImpl implements TaskService {
 
         // 4. Find task
         Task task = taskRepository
-                        .findByProjectIdAndId(
-                                projectId,
-                                taskId
+                .findByProjectIdAndId(
+                        projectId,
+                        taskId
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Task not found"
                         )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Task not found"
-                                )
-                        );
+                );
 
-        // 5. Remove assignee
+        // 5. Capture previous assignee BEFORE removing
+        User previousAssignee = task.getAssignee();
+
+        // 6. Remove assignee
         task.setAssignee(null);
 
         task = taskRepository.save(task);
+
+        // 7. Trigger notification
+        if (previousAssignee != null) {
+
+            Long currentUserId = SecurityUtils.getCurrentUserId();
+
+            // Don't notify if user unassigned themselves
+            if (!previousAssignee.getId().equals(currentUserId)) {
+
+                notificationEventPublisher.publishTaskUnassigned(
+                        new TaskUnassignedEvent(
+                                task.getId(),
+                                project.getId(),
+                                organizationId,
+                                previousAssignee.getId(),
+                                task.getProject().getKey() + "-" + task.getId(),
+                                task.getTitle(),
+                                currentUserId
+                        )
+                );
+            }
+        }
 
         return ApiResponse.<TaskResponse>builder()
                 .success(true)
