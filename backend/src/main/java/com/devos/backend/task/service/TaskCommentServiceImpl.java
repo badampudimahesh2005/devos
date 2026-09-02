@@ -1,5 +1,7 @@
 package com.devos.backend.task.service;
 
+import com.devos.backend.notification.event.NotificationEventPublisher;
+import com.devos.backend.notification.event.TaskCommentAddedEvent;
 import org.springframework.security.access.AccessDeniedException;
 import com.devos.backend.auth.repository.UserRepository;
 import com.devos.backend.common.dto.ApiResponse;
@@ -46,6 +48,8 @@ public class TaskCommentServiceImpl
 
     private final OrganizationAuthorizationService organizationAuthorizationService;
 
+    private final NotificationEventPublisher notificationEventPublisher;
+
     @Override
     @Transactional
     public ApiResponse<TaskCommentResponse> createComment(
@@ -59,19 +63,19 @@ public class TaskCommentServiceImpl
         Long currentUserId = SecurityUtils.getCurrentUserId();
 
         User currentUser = userRepository
-                        .findById(currentUserId)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found"
-                                )
-                        );
+                .findById(currentUserId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "User not found"
+                        )
+                );
 
         // 2. Verify organization membership
         boolean organizationMember = organizationMemberRepository
-                        .existsByOrganizationIdAndUserId(
-                                organizationId,
-                                currentUserId
-                        );
+                .existsByOrganizationIdAndUserId(
+                        organizationId,
+                        currentUserId
+                );
 
         if (!organizationMember) {
 
@@ -82,15 +86,15 @@ public class TaskCommentServiceImpl
 
         // 3. Verify project belongs to organization
         Project project = projectRepository
-                        .findByOrganizationIdAndId(
-                                organizationId,
-                                projectId
+                .findByOrganizationIdAndId(
+                        organizationId,
+                        projectId
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Project not found"
                         )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Project not found"
-                                )
-                        );
+                );
 
         // 4. Archived project cannot be modified
         if (project.getStatus() == ProjectStatus.ARCHIVED) {
@@ -102,15 +106,15 @@ public class TaskCommentServiceImpl
 
         // 5. Verify task belongs to project
         Task task = taskRepository
-                        .findByProjectIdAndId(
-                                projectId,
-                                taskId
+                .findByProjectIdAndId(
+                        projectId,
+                        taskId
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Task not found"
                         )
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Task not found"
-                                )
-                        );
+                );
 
         // 6. Create comment
         TaskComment comment =
@@ -120,10 +124,31 @@ public class TaskCommentServiceImpl
                         .content(request.getContent())
                         .build();
 
-        // 7. Save
+        // 7. Save comment
         comment = taskCommentRepository.save(comment);
 
-        // 8. Response
+        // 8. Trigger notification
+        if (task.getAssignee() != null
+                && !task.getAssignee().getId().equals(currentUserId)) {
+
+            notificationEventPublisher.publishTaskCommentAdded(
+                    new TaskCommentAddedEvent(
+                            task.getId(),
+                            project.getId(),
+                            organizationId,
+                            task.getAssignee().getId(),
+                            comment.getId(),
+                            task.getProject().getKey() + "-" + task.getId(),
+                            task.getTitle(),
+                            currentUserId,
+                            currentUser.getFirstName()
+                                    + " "
+                                    + currentUser.getLastName()
+                    )
+            );
+        }
+
+        // 9. Response
         return ApiResponse.<TaskCommentResponse>builder()
                 .success(true)
                 .message("Comment added successfully")

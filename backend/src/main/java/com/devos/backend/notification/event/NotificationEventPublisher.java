@@ -19,4 +19,8 @@ public class NotificationEventPublisher {
 
         eventPublisher.publishEvent(event);
     }
+
+    public void publishTaskCommentAdded(TaskCommentAddedEvent event) {
+        eventPublisher.publishEvent(event);
+    }
 }

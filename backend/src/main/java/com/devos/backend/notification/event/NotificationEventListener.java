@@ -81,4 +81,38 @@ public class NotificationEventListener {
 
         notificationRepository.save(notification);
     }
+
+    @EventListener
+    public void handleTaskCommentAdded(TaskCommentAddedEvent event) {
+
+        User assignee = userRepository
+                .findById(event.assigneeId())
+                .orElse(null);
+
+        if (assignee == null) {
+            return;
+        }
+
+        // Don't notify the assignee about their own comment
+        if (assignee.getId().equals(event.commentedByUserId())) {
+            return;
+        }
+
+        Notification notification = Notification.builder()
+                .user(assignee)
+                .type(NotificationType.TASK_COMMENT_ADDED)
+                .title("New comment on your task")
+                .message(
+                        event.commenterName()
+                                + " commented on "
+                                + event.taskKey()
+                                + " - "
+                                + event.taskTitle()
+                )
+                .referenceType("TASK")
+                .referenceId(event.taskId())
+                .build();
+
+        notificationRepository.save(notification);
+    }
 }
