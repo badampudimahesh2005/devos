@@ -8,6 +8,7 @@ import com.devos.backend.common.exception.ResourceStateException;
 import com.devos.backend.common.security.SecurityUtils;
 import com.devos.backend.notification.event.NotificationEventPublisher;
 import com.devos.backend.notification.event.TaskAssignedEvent;
+import com.devos.backend.notification.event.TaskStatusChangedEvent;
 import com.devos.backend.organization.entity.Organization;
 import com.devos.backend.organization.repository.OrganizationMemberRepository;
 import com.devos.backend.organization.repository.OrganizationRepository;
@@ -530,6 +531,9 @@ public class TaskServiceImpl implements TaskService {
                                 )
                         );
 
+        // Capture old status BEFORE changing it
+        TaskStatus oldStatus = task.getStatus();
+
         //before saving validate the task flow
         taskAuthorizationService
                 .validateStatusTransition(
@@ -541,6 +545,26 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus(request.getStatus());
 
         task = taskRepository.save(task);
+
+        //Trigger notification
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+
+        if (task.getAssignee() != null && !task.getAssignee().getId().equals(currentUserId)) {
+
+            notificationEventPublisher.publishTaskStatusChanged(
+                    new TaskStatusChangedEvent(
+                            task.getId(),
+                            project.getId(),
+                            organizationId,
+                            task.getAssignee().getId(),
+                            task.getProject().getKey() + "-" + task.getId(),
+                            task.getTitle(),
+                            oldStatus.name(),
+                            task.getStatus().name(),
+                            currentUserId
+                    )
+            );
+        }
 
         return ApiResponse.<TaskResponse>builder()
                 .success(true)

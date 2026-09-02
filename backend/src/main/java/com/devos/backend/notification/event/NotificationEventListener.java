@@ -44,4 +44,41 @@ public class NotificationEventListener {
 
         notificationRepository.save(notification);
     }
+
+
+    @EventListener
+    public void handleTaskStatusChanged(TaskStatusChangedEvent event) {
+
+        User assignee = userRepository
+                .findById(event.assigneeId())
+                .orElse(null);
+
+        if (assignee == null) {
+            return;
+        }
+
+        // Don't notify when the user changes their own task status
+        if (assignee.getId().equals(event.changedByUserId())) {
+            return;
+        }
+
+        Notification notification = Notification.builder()
+                .user(assignee)
+                .type(NotificationType.TASK_STATUS_CHANGED)
+                .title("Task status changed")
+                .message(
+                        event.taskKey()
+                                + " - "
+                                + event.taskTitle()
+                                + " changed from "
+                                + event.oldStatus()
+                                + " to "
+                                + event.newStatus()
+                )
+                .referenceType("TASK")
+                .referenceId(event.taskId())
+                .build();
+
+        notificationRepository.save(notification);
+    }
 }

@@ -14,4 +14,9 @@ public class NotificationEventPublisher {
 
         eventPublisher.publishEvent(event);
     }
+
+    public void publishTaskStatusChanged(TaskStatusChangedEvent event) {
+
+        eventPublisher.publishEvent(event);
+    }
 }
