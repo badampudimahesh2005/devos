@@ -26,6 +26,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final UsernameGenerator usernameGenerator;
 
     public ApiResponse<Void> register(RegisterRequest request) {
 
@@ -33,9 +34,15 @@ public class AuthService {
             throw new EmailAlreadyExistsException("Email already exists");
         }
 
+        String username = usernameGenerator.generate(
+                request.getFirstName(),
+                request.getLastName()
+        );
+
         User user = User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
+                .username(username)
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
